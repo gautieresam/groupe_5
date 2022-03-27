@@ -8,6 +8,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const _ = require('lodash');
 const fileUpload = require('express-fileupload');
+const {NULL} = require("mysql/lib/protocol/constants/types");
 
 const pool = mysql.createConnection({
     host: "localhost",
@@ -82,12 +83,55 @@ app.get('/api/auth/sign', function(req, res) {
 });
 
 
+// POST AUTHENTIFICATION
+app.post('/api/auth/sign', function(req, res) {
+
+    // ici on va recevoir les parametres suivants
+    const pseudo = req.body.pseudo;
+    const mdp = req.body.mdp;
+    const token = generateRandomString(16);
+
+    // on verifie les donnes qu on a sur le serveur
+    console.log("GET /api/auth/sign")
+    console.log("DATA pseudo="+pseudo+" mdp="+mdp)
+
+    // On fait un appel SQL pour comparer si le pseudo et mot de passe existe dans la base
+    pool.query('SELECT * FROM `membres` WHERE `pseudo`="'+pseudo+'" and mdp="'+mdp+'"' , (err, rows, fields) => {
+        if(err){
+            return res.status(500).json({
+                erreur:err
+            });
+        }else{
+            const user = rows[0];
+            // SI la requete passe on a normalement une ligne qui est la premiere ligne du tableau de retour
+            if(user){ // si elle est definie on va renvoyer un token et renvoyer les donées
+                var string=JSON.stringify(user);
+                var json =  JSON.parse(string);
+                var base_pseudo = json.pseudo;
+                var base_mdp = json.mdp;
+
+                console.log("BDD base_pseudo="+base_pseudo+" base_mdp="+base_mdp)
+                res.json({
+                    "token":token
+                });
+            }else{
+                console.log("user non défini")
+                res.json({
+                    "token":""
+                });
+            }
+        }
+    })
+});
+
+
+
 // GET ALL TRANSACTIONS OR ONE TRANSACTIONS (WITHOUT SEARCH)
 app.get('/api/transactions', function(req, res) {
     console.log("GET /api/transactions")
     const id_transactions = req.query.id_transactions;
     if(id_transactions){
-        pool.query('SELECT * FROM transactions WHERE id_transactions='+id_transactions , (err, rows, fields) => {
+        pool.query('SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions and id_transactions='+id_transactions , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -100,7 +144,7 @@ app.get('/api/transactions', function(req, res) {
             }
         })
     }else{
-        pool.query('SELECT * FROM `transactions`' , (err, rows, fields) => {
+        pool.query('SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions' , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -114,17 +158,21 @@ app.get('/api/transactions', function(req, res) {
     }
 });
 
-// GET ALL TRANSACTIONS BETWEEN TWO DATE
+// GET ALL TRANSACTIONS BETWEEN TWO DATE => OK
+// Warning id_propositions doit être defini car il s'agit d'une jointure entre 2 tables
 app.get('/api/transactions/search/dates', function(req, res) {
     console.log("GET /api/transactions/search/dates")
 
     let datePrevue = req.query.datePrevue;
     let dateFin = req.query.dateFin;
+    console.log("datePrevue="+datePrevue+"dateFin="+dateFin)
     if(datePrevue==undefined){datePrevue=null}
     if(dateFin==undefined){dateFin=null}
-    // OK TOUTES LES TRANSACTIONS DANS L'INTERVAL
+
+    console.log("datePrevue="+datePrevue+"dateFin="+dateFin)
+    let startQuery = 'SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions and'
     if(datePrevue!=null && dateFin!=null){
-        pool.query('SELECT * FROM `transactions` WHERE `datePrevue`>=\''+datePrevue+'\' and `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
+        pool.query(startQuery+' `datePrevue`>=\''+datePrevue+'\' and `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -132,13 +180,15 @@ app.get('/api/transactions/search/dates', function(req, res) {
             }else{
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "nksm":"e"
                 });
             }
         })
     // OK TOUTES LES TRANSACTIONS A PARTIR DE LA DATE PREVUE
     }else if(datePrevue!=null && dateFin==null){
-        pool.query('SELECT * FROM `transactions` WHERE `datePrevue`>=\''+datePrevue+'\'', (err, rows, fields) => {
+        console.log("z")
+        pool.query(startQuery+' `datePrevue`>=\''+datePrevue+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -152,7 +202,7 @@ app.get('/api/transactions/search/dates', function(req, res) {
         })
     // OK TOUTES LES TRANSACTION AVANT LA DATE DE FIN
     }else if(datePrevue==null && dateFin!=null){
-        pool.query('SELECT * FROM `transactions` WHERE `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
+        pool.query(startQuery+' `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -168,17 +218,11 @@ app.get('/api/transactions/search/dates', function(req, res) {
 });
 
 
-/**
- * FRoute pour rechercher en fonction de tous les arguments
- * Etat : A faire
- */
-// GET ALL TRANSACTIONS OR ONE TRANSACTIONS (WITHOUT SEARCH)
+// GET ALL TRANSACTIONS OR ONE TRANSACTIONS WITHOUT FULL ARGS
 app.get('/api/transactions/search', async function(req, res) {
 
     console.log("GET /api/transactions/search")
-
-    // DEFINIR LA QUERY DE BASE
-    let query = 'SELECT * FROM `transactions` WHERE ';
+    let query = 'SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions and ';
     let nbArgs=0;
     for (const key in req.query) {
         nbArgs++;
@@ -200,11 +244,9 @@ app.get('/api/transactions/search', async function(req, res) {
             } else if (key == 'duree') {
                 query = query + "`" + key + "`=" + req.query[key] + " and ";
             } else if (key == 'datePrevue') {
-                query = query + "`" + key + "`=\'" + req.query[key] + "\' and ";
-
+                query = query + "`" + key + "`>=\'" + req.query[key] + "\' and ";
             } else if (key == 'dateFin') {
-                query = query + "`" + key + "`=\'" + req.query[key] + "\' and ";
-
+                query = query + "`" + key + "`<=\'" + req.query[key] + "\' and ";
             } else if (key == 'etat') {
                 query = query + "`" + key + "`=\'" + req.query[key] + "\' and ";
             } else if (key == 'ecu') {
@@ -224,9 +266,9 @@ app.get('/api/transactions/search', async function(req, res) {
             } else if (key == 'duree') {
                 query = query + "`" + key + "`=" + req.query[key];
             } else if (key == 'datePrevue') {
-                query = query + "`" + key + "`=\'" + req.query[key] + "\'";
+                query = query + "`" + key + "`>=\'" + req.query[key] + "\'";
             } else if (key == 'dateFin') {
-                query = query + "`" + key + "`=\'" + req.query[key] + "\'";
+                query = query + "`" + key + "`<=\'" + req.query[key] + "\'";
             } else if (key == 'etat') {
                 query = query + "`" + key + "`=\'" + req.query[key] + "\'";
             } else if (key == 'ecu') {
@@ -258,44 +300,31 @@ app.get('/api/transactions/search', async function(req, res) {
 
 /**
  * Toutes les route pour rechercher en fonction de tous les arguments
- * Etat : A faire
+ * Etat : OK mais renvoie une l'iste id et distance il faut filtrer suivant des KM autour de moi à finir
  */
 // GET ALL TRANSACTIONS ARROUND ME
 app.get('/api/transactions/localisation', function(req, res) {
     console.log("GET /api/transactions/localisation")
-    const lat = req.query.lat;
-    const long = req.query.long;
+    const maLat = req.query.lat;
+    const maLong = req.query.long;
 
-    if(lat!= undefined && long!=undefined){
+    if(maLat!= undefined && maLong!=undefined){
 
-    // Coordonnées FLeurbaix
-    let B2 = 50.65; // a lat
-    let C2 = 2.8333; // a long
+    // SELECT id_propositions, 1.60934*( 3959 * acos( cos( radians(50.6333) ) * cos( radians( lat ) ) * cos( radians( longue ) - radians(3.0667) ) + sin( radians(50.6333) ) * sin( radians( lat ) ) ) ) AS distance FROM propositions
+        pool.query('SELECT id_propositions, 1.60934*( 3959 * acos( cos( radians('+maLat+') ) * cos( radians( lat ) ) * cos( radians( longue ) - radians('+maLong+') ) + sin( radians('+maLat+') ) * sin( radians( lat ) ) ) ) AS distance FROM propositions', (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err
+                });
+            }else{
+                // Parcourir le tableau pour renvoyer les propositions.
+                console.log(rows)
+                res.json({
+                    "data":rows
+                });
+            }
+        })
 
-    // Coordonnées Lille
-    let B3 = 50.6333; // b lat
-    let C3 = 3.0667; // B long
-
-    const radsToDegs = rad => rad * 180 / Math.PI;
-    const degsToRads = deg => (deg * Math.PI) / 180.0;
-
-    // SELECT 111.111 * DEGREES(ACOS(COS(RADIANS(50.6333)) * COS(RADIANS(50.6333)) * COS(RADIANS(a.long - 3.0667)) + SIN(RADIANS(a.lat)) * SIN(RADIANS(50.6333)))) AS distance_in_km FROM propositions AS a
-
-    const sin = rad => Math.sin(rad);
-    const cos = rad => Math.cos(rad);
-    const acos = rad => Math.acos(rad);
-
-    const distance = acos(sin(degsToRads(B2))*sin(degsToRads(B3))+cos(degsToRads(B2))*cos(degsToRads(B3))*cos(degsToRads(C2-C3)))*6371;
-    console.log(distance)
-
-        /*
-        SELECT a.id_propositions AS from_city, b.id_propositions AS to_city, 111.111 * DEGREES(ACOS(COS(RADIANS(a.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(a.long - b.long)) + SIN(RADIANS(a.lat)) * SIN(RADIANS(b.lat)))) AS distance_in_km FROM propositions AS a JOIN propositions AS b ON a.id_propositions <> b.id_propositions WHERE a.id_propositions = 19 AND b.id_propositions = 25
-         */
-
-        res.json({
-            "data":"",
-            "Message":"Il y a les arguments il faut finir de dev"
-        });
 
     }else{
         console.log("les donnes sont pas definie ")
@@ -307,7 +336,95 @@ app.get('/api/transactions/localisation', function(req, res) {
 });
 
 
-// PUT NEW TRANSACTIONS => OK
+/**
+ * Toutes les route pour rechercher en fonction de tous les arguments
+ * Etat : renvoie toutes les propositions
+ *
+ */
+// GET ALL TRANSACTIONS ARROUND ME
+app.get('/api/v2/transactions/localisation', function(req, res) {
+    console.log("GET /api/transactions/localisation")
+    const maLat = req.query.lat;
+    const maLong = req.query.long;
+    var ret=[];
+
+
+    if(maLat!= undefined && maLong!=undefined){
+        pool.query('SELECT id_propositions, 1.60934*( 3959 * acos( cos( radians('+maLat+') ) * cos( radians( lat ) ) * cos( radians( longue ) - radians('+maLong+') ) + sin( radians('+maLat+') ) * sin( radians( lat ) ) ) ) AS distance FROM propositions LIMIT 5', (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err
+                });
+            }else{
+
+                //Parcourir le tableau pour renvoyer les propositions.
+                //console.log(rows)
+                //console.log('>> results: ', rows );
+                var string=JSON.stringify(rows);
+                //console.log('>> string: ', string );
+                var json =  JSON.parse(string);
+                //console.log('>> json: ', json);
+                //console.log('> user.name: ', json[0].distance);
+
+                console.log(json.length)
+
+                for (var i = 0; i < 5; i++) {
+
+                    pool.query('SELECT * FROM `propositions` WHERE `id_propositions`='+json[i].id_propositions , (err, row, fields) => {
+                        if(err){
+                            return res.status(500).json({
+                                erreur:err
+                            });
+                        }else{
+                            //console.log("date:"+fields)
+                            //console.log(row)
+                            var string=JSON.stringify(row);
+                            //console.log('>> string: ', string );
+                            var json2 =  JSON.parse(string);
+                            console.log(typeof json2[0])
+                            ret.push(json2[0])
+                        }
+                    })
+                }
+
+                // Attendre 2 secondes
+
+                function resolveAfter2Seconds(x) {
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve(x);
+                        }, 5000);
+                    });
+                }
+                let data;
+                async function f1() {
+                    var x = await resolveAfter2Seconds(10);
+                    console.log(x); // 10
+                    console.log(ret)
+                    data=ret
+                    res.json({
+                        "data":data
+                    });
+                }
+                f1();
+
+            }
+        })
+
+
+    }else{
+        console.log("les donnes sont pas definie ")
+        res.json({
+            "data":"",
+            "Message":"Il manque un arguement lat ou long"
+        });
+    }
+});
+
+
+
+
+// OK
 app.put('/api/transactions/', function(req, res) {
 
     console.log("PUT /api/transactions/")
@@ -325,14 +442,68 @@ app.put('/api/transactions/', function(req, res) {
 
     if(id_propositions==undefined){id_propositions=null}
     if(id_beneficiaire==undefined){id_beneficiaire=null}
-    if(duree==undefined){duree=null}
+    if(duree==undefined){duree=0}
     if(datePrevue==undefined){datePrevue=null}
     if(dateFin==undefined){dateFin=null}
     if(etat==undefined){etat=null}
     if(ecu==undefined){ecu=0}
     if(tarif==undefined){tarif=0}
 
-        pool.query('INSERT INTO `transactions` (`id_transactions`, `id_propositions`, `id_beneficiaire`, `duree`, `datePrevue`, `dateFin`, `etat`, `tarif`, `ecu`) VALUES ('+id_transactions+','+id_propositions+','+id_beneficiaire+','+duree+','+datePrevue+','+dateFin+','+etat+','+tarif+','+ecu+')' , (err, rows, fields) => {
+    if(datePrevue!= null && dateFin!= null) {
+        pool.query('INSERT INTO `transactions` ( `id_propositions`, `id_beneficiaire`, `duree`, `datePrevue`, `dateFin`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',"'+datePrevue+'","'+dateFin+'",\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err
+                });
+            }else{
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+                console.log(id_new_transaction)
+                pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
+                    if(err){
+                        return res.status(500).json({
+                            erreur:err
+                        });
+                    }else{
+                        console.log(rows)
+                        res.json({
+                            "data":rows
+                        });
+                    }
+                })
+            }
+        })
+    }else if(datePrevue== null && dateFin!=null){
+        pool.query('INSERT INTO `transactions` (`id_propositions`, `id_beneficiaire`, `duree`, `dateFin`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',"'+dateFin+'",\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err,
+                    status:false
+                });
+            }else{
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
+                    if(err){
+                        return res.status(500).json({
+                            erreur:err
+                        });
+                    }else{
+                        console.log(rows)
+                        res.json({
+                            "data":rows
+                        });
+                    }
+                })
+            }
+        })
+    }else if(datePrevue!= null && dateFin== null){
+        pool.query('INSERT INTO `transactions` (`id_propositions`, `id_beneficiaire`, `duree`, `datePrevue`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',\''+datePrevue+'\',\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
                     erreur:err
@@ -357,55 +528,138 @@ app.put('/api/transactions/', function(req, res) {
                 })
             }
         })
+    }else if(datePrevue== null && dateFin== null){
+        pool.query('INSERT INTO `transactions` (`id_propositions`, `id_beneficiaire`, `duree`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err
+                });
+            }else{
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
+                    if(err){
+                        return res.status(500).json({
+                            erreur:err
+                        });
+                    }else{
+                        console.log(rows)
+                        res.json({
+                            "data":rows
+                        });
+                    }
+                })
+            }
+        })
+    }else{
+        res.json({
+            "status": false,
+            "message": "erreur API",
+        });
+    }
 });
 
 
-// POST NEW TRANSACTIONS => OK
+// POST NEW TRANSACTIONS
+// PAS OK
+// A refaire
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 app.post('/api/transactions/', function(req, res) {
+    // UPDATE
+    console.log("GET /api/transactions/search")
+    let query = 'SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions and ';
 
-    console.log("POST /api/transactions/")
+    //UPDATE `transactions` SET `id_transactions`=[value-1],`id_propositions`=[value-2],`id_beneficiaire`=[value-3],`duree`=[value-4],`datePrevue`=[value-5],`dateFin`=[value-6],`etat`=[value-7],`tarif`=[value-8],`ecu`=[value-9] WHERE 1
 
-    let id_transactions = req.body.id_transactions;
-    let id_propositions = req.body.id_propositions;
-    let id_beneficiaire = req.body.id_beneficiaire;
-    let duree = req.body.duree;
-    let datePrevue = req.body.datePrevue;
-    let dateFin = req.body.dateFin;
-    let etat = req.body.etat;
-    let ecu = req.body.ecu;
-    let tarif = req.body.tarif;
+    let nbArgs=0;
+    for (const key in req.body) {
+        nbArgs++;
+        console.log(key+" = "+req.body[key])
+    }
 
-    if(id_propositions==undefined){id_propositions=null}
-    if(id_beneficiaire==undefined){id_beneficiaire=null}
-    if(duree==undefined){duree=null}
-    if(datePrevue==undefined){datePrevue=null}
-    if(dateFin==undefined){dateFin=null}
-    if(etat==undefined){etat="OK"}
-    if(ecu==undefined){ecu=0}
-    if(tarif==undefined){tarif=0}
+    console.log("NbArgs="+nbArgs+"Debut de la boucle :")
+    console.log('-------------------------------')
 
-    console.log(typeof(datePrevue))
+    // Savoir si id est definie ou non
 
-    pool.query('UPDATE `transactions` SET  `id_transactions`='+id_transactions+', `duree`='+duree+', `datePrevue`="'+datePrevue+'", `id_propositions`='+id_propositions+',`id_beneficiaire`='+id_beneficiaire+',`duree`='+duree+',`etat`="'+etat+'",`tarif`='+tarif+',`ecu`='+ecu+' WHERE `id_transactions`='+id_transactions, (err, rows, fields) => {
+    /*
+    for (const key in req.query) {
+        if(nbArgs>1) {
+            console.log(key, req.query[key])
+            if (key == 'id_transactions') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+            } else if (key == 'id_propositions') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+
+            } else if (key == 'id_beneficiaire') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+            } else if (key == 'duree') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+            } else if (key == 'datePrevue') {
+                query = query + "`" + key + "`>=\'" + req.query[key] + "\' and ";
+            } else if (key == 'dateFin') {
+                query = query + "`" + key + "`<=\'" + req.query[key] + "\' and ";
+            } else if (key == 'etat') {
+                query = query + "`" + key + "`=\'" + req.query[key] + "\' and ";
+            } else if (key == 'ecu') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+            } else if (key == 'tarif') {
+                query = query + "`" + key + "`=" + req.query[key] + " and ";
+            }else {
+                console.log('eror2')
+            }
+        }else{
+            if (key == 'id_transactions') {
+                query = query + "`" + key + "`=" + req.query[key];
+            } else if (key == 'id_propositions') {
+                query = query + "`" + key + "`=" + req.query[key];
+            } else if (key == 'id_beneficiaire') {
+                query = query + "`" + key + "`=" + req.query[key];
+            } else if (key == 'duree') {
+                query = query + "`" + key + "`=" + req.query[key];
+            } else if (key == 'datePrevue') {
+                query = query + "`" + key + "`>=\'" + req.query[key] + "\'";
+            } else if (key == 'dateFin') {
+                query = query + "`" + key + "`<=\'" + req.query[key] + "\'";
+            } else if (key == 'etat') {
+                query = query + "`" + key + "`=\'" + req.query[key] + "\'";
+            } else if (key == 'ecu') {
+                query = query + "`" + key + "`=" + req.query[key];
+            } else if (key == 'tarif') {
+                query = query + "`" + key + "`=" + req.query[key];
+            }else {
+                console.log('eror')
+            }
+        }
+        nbArgs--;
+    }
+    console.log(query)
+
+    pool.query(query, (err, rows, fields) => {
         if(err){
             return res.status(500).json({
                 erreur:err
             });
         }else{
-            pool.query('SELECT * FROM transactions WHERE id_transactions='+id_transactions , (err, rows, fields) => {
-                if(err){
-                    return res.status(500).json({
-                        erreur:err
-                    });
-                }else{
-                    console.log(rows)
-                    res.json({
-                        "data":rows
-                    });
-                }
-            })
+            console.log(rows)
+            res.json({
+                "data":rows
+            });
         }
     })
+    */
+    res.json({
+        "status":"devmasse"
+    });
+
 });
 
 
@@ -656,6 +910,7 @@ app.get('/api/commentaires', function(req, res) {
 
 // PUT COMMENTAIRES => A FAIRE
 // Creation d'un nouveau comentaire dans la base
+// id_transactions texte id_code_membre sont necessaires pour la création
 app.put('/api/commentaires/', function(req, res) {
 
     console.log("PUT /api/commentaires/")
@@ -703,21 +958,24 @@ app.put('/api/commentaires/', function(req, res) {
 
 
 
-// POST COMMENTAIRES => A FAIRE
-// Creation d'un nouveau comentaire dans la base
+// POST COMMENTAIRES => OK
+// Modification d'un nouveau comentaire dans la base
+// La variable ID commentaire ne peut pas être modifiable.
 app.post('/api/commentaires/', function(req, res) {
 
-    console.log("PUT /api/commentaires/")
-    let id_commentaires = req.query.id_commentaires;
-    let id_transactions = req.query.id_transactions;
-    let texte = req.query.texte;
-    let id_code_membre = req.query.id_code_membre;
+    console.log("POST /api/commentaires/")
+    let id_commentaires = req.body.id_commentaires;
+    let id_transactions = req.body.id_transactions;
+    let texte = req.body.texte;
+    let id_code_membre = req.body.id_code_membre;
+    console.log(id_commentaires)
 
     if(id_commentaires==undefined){id_commentaires=null}
     if(id_transactions==undefined){id_transactions=null}
     if(texte==undefined){texte=null}
     if(id_code_membre==undefined){id_code_membre=null}
 
+    console.log(id_commentaires)
     if(id_commentaires != null) {
         // OK
         if(id_transactions != null && texte == null && id_code_membre == null) {
@@ -727,10 +985,19 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+
+                            });
+                        }})
                 }
             })
         // OK
@@ -741,10 +1008,19 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+
+                            });
+                        }})
                 }
             })
         // OK
@@ -755,10 +1031,18 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+                            });
+                        }})
                 }
             })
         // OK
@@ -769,10 +1053,18 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+                            });
+                        }})
                 }
             })
         // OK
@@ -783,10 +1075,19 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+
+                            });
+                        }})
                 }
             })
         // OK
@@ -797,10 +1098,19 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+
+                            });
+                        }})
                 }
             })
         // OK
@@ -811,10 +1121,18 @@ app.post('/api/commentaires/', function(req, res) {
                         erreur: err
                     });
                 } else {
-                    console.log(rows)
-                    res.json({
-                        "data": rows
-                    });
+                    pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
+                        if (err) {
+                            return res.status(500).json({
+                                erreur: err
+                            });
+                        } else {
+                            console.log(rows)
+                            res.json({
+                                "data": rows,
+                                status: true,
+                            });
+                        }})
                 }
             })
         }else{
@@ -912,6 +1230,179 @@ app.get('/api/download-avatar', async (req, res) => {
                 message: 'File is not uploaded'
             }
         )
+    }
+});
+
+
+//**************************Propositions************************************
+// PUT NEW PROPOSITIONS => OK
+app.put('/api/propositions/', function(req, res) {
+
+    console.log("PUT /api/propositions/")
+
+    let id_propositions = null;
+    let id_code_membre = req.query.id_code_membre;
+    let titre = req.query.titre;
+    let desc = req.query.desc;
+    let id_competences = req.query.id_competences;
+    let date_debut = req.query.date_debut;
+    let date_fin = req.query.date_fin;
+    let lat = req.query.lat;
+    let long = req.query.long;
+    let id_new_transaction;
+
+    if(id_code_membre==undefined){id_code_membre=null}
+    if(titre==undefined){titre=null}
+    if(desc==undefined){desc=null}
+    if(id_competences==undefined){id_competences=null}
+    if(date_debut==undefined){date_debut=undefined}
+    if(date_fin==undefined){date_fin=undefined}
+    if(lat==undefined){lat=0}
+    if(long==undefined){long=0}
+
+    if(date_debut!= undefined && date_fin!= undefined) {
+        pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_debut`, `date_fin`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_debut + '\',\'' + date_fin + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
+            if (err) {
+                return res.status(500).json({
+                    erreur: err
+                });
+            } else {
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
+                    if (err) {
+                        return res.status(500).json({
+                            erreur: err
+                        });
+                    } else {
+                        console.log(rows)
+                        res.json({
+                            "data": rows,
+                            status: true,
+                        });
+                    }
+                })
+            }
+        })
+    }else if(date_debut== undefined && date_fin!= undefined){
+        pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_fin`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_fin + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
+            if (err) {
+                return res.status(500).json({
+                    erreur: err
+                });
+            } else {
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
+                    if (err) {
+                        return res.status(500).json({
+                            erreur: err
+                        });
+                    } else {
+                        console.log(rows)
+                        res.json({
+                            "data": rows,
+                            status: true,
+
+                        });
+                    }
+                })
+            }
+        })
+    }else if(date_debut!= undefined && date_fin== undefined){
+        pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_debut`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_debut + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
+            if (err) {
+                return res.status(500).json({
+                    erreur: err
+                });
+            } else {
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
+                    if (err) {
+                        return res.status(500).json({
+                            erreur: err
+                        });
+                    } else {
+                        console.log(rows)
+                        res.json({
+                            "data": rows,
+                            status: true,
+
+                        });
+                    }
+                })
+            }
+        })
+    }else if(date_debut== undefined && date_fin== undefined){
+        pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ','+ lat + ',' + long + ')', (err, rows, fields) => {
+            if (err) {
+                return res.status(500).json({
+                    erreur: err
+                });
+            } else {
+                const transaction = rows;
+                var string = JSON.stringify(transaction);
+                var json = JSON.parse(string);
+                id_new_transaction = json.insertId;
+
+                pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
+                    if (err) {
+                        return res.status(500).json({
+                            erreur: err
+                        });
+                    } else {
+                        console.log(rows)
+                        res.json({
+                            "data": rows,
+                            status: true,
+
+                        });
+                    }
+                })
+            }
+        })
+    }else{
+        res.json({
+            "status": false,
+            "message": "erreur API",
+        });
+    }
+});
+
+
+// GET ALL TRANSACTIONS OR ONE TRANSACTIONS (WITHOUT SEARCH)
+app.get('/api/propositions', function(req, res) {
+    console.log("GET /api/propositions")
+    const id_propositions = req.query.id_propositions;
+    if(id_propositions){
+        pool.query('SELECT * FROM `propositions` WHERE `id_propositions`='+id_propositions , (err, rows, fields) => {
+            if(err){
+                return res.status(500).json({
+                    erreur:err
+                });
+            }else{
+                console.log(rows)
+                res.json({
+                    "data":rows
+                });
+            }
+        })
+    }else{
+        console.log(rows)
+        res.json({
+            "status":"false",
+            "message":"Il manque l'id de la proposition !"
+        });
     }
 });
 
