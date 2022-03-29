@@ -99,7 +99,8 @@ app.post('/api/auth/sign', function(req, res) {
     pool.query('SELECT * FROM `membres` WHERE `pseudo`="'+pseudo+'" and mdp="'+mdp+'"' , (err, rows, fields) => {
         if(err){
             return res.status(500).json({
-                erreur:err
+                erreur:err,
+                "status": "false"
             });
         }else{
             const user = rows[0];
@@ -112,12 +113,15 @@ app.post('/api/auth/sign', function(req, res) {
 
                 console.log("BDD base_pseudo="+base_pseudo+" base_mdp="+base_mdp)
                 res.json({
-                    "token":token
+                    "token":token,
+                    "status": "true"
                 });
             }else{
                 console.log("user non défini")
                 res.json({
-                    "token":""
+                    "token":"",
+                    "status": "false"
+
                 });
             }
         }
@@ -134,12 +138,16 @@ app.get('/api/transactions', function(req, res) {
         pool.query('SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions and id_transactions='+id_transactions , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -147,11 +155,15 @@ app.get('/api/transactions', function(req, res) {
         pool.query('SELECT p.id_code_membre as id_dispensateur, t.id_propositions,id_transactions,id_beneficiaire,duree,datePrevue,dateFin,etat,tarif,ecu FROM transactions AS t,propositions AS p WHERE t.id_propositions=p.id_propositions' , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -175,13 +187,16 @@ app.get('/api/transactions/search/dates', function(req, res) {
         pool.query(startQuery+' `datePrevue`>=\''+datePrevue+'\' and `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 console.log(rows)
                 res.json({
                     "data":rows,
-                    "nksm":"e"
+                    "status": "true"
+
                 });
             }
         })
@@ -191,12 +206,16 @@ app.get('/api/transactions/search/dates', function(req, res) {
         pool.query(startQuery+' `datePrevue`>=\''+datePrevue+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -205,12 +224,16 @@ app.get('/api/transactions/search/dates', function(req, res) {
         pool.query(startQuery+' `dateFin`<=\''+dateFin+'\'', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -286,12 +309,14 @@ app.get('/api/transactions/search', async function(req, res) {
     pool.query(query, (err, rows, fields) => {
         if(err){
             return res.status(500).json({
-                erreur:err
+                erreur:err,
+                "status": "false"
             });
         }else{
             console.log(rows)
             res.json({
-                "data":rows
+                "data":rows,
+                "status": "true"
             });
         }
     })
@@ -314,13 +339,17 @@ app.get('/api/transactions/localisation', function(req, res) {
         pool.query('SELECT id_propositions, 1.60934*( 3959 * acos( cos( radians('+maLat+') ) * cos( radians( lat ) ) * cos( radians( longue ) - radians('+maLong+') ) + sin( radians('+maLat+') ) * sin( radians( lat ) ) ) ) AS distance FROM propositions', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
+
                 });
             }else{
                 // Parcourir le tableau pour renvoyer les propositions.
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -329,7 +358,7 @@ app.get('/api/transactions/localisation', function(req, res) {
     }else{
         console.log("les donnes sont pas definie ")
         res.json({
-            "data":"",
+            "status": "false",
             "Message":"Il manque un arguement lat ou long"
         });
     }
@@ -373,7 +402,8 @@ app.get('/api/v2/transactions/localisation', function(req, res) {
                     pool.query('SELECT * FROM `propositions` WHERE `id_propositions`='+json[i].id_propositions , (err, row, fields) => {
                         if(err){
                             return res.status(500).json({
-                                erreur:err
+                                erreur:err,
+                                "status": "false"
                             });
                         }else{
                             //console.log("date:"+fields)
@@ -388,7 +418,6 @@ app.get('/api/v2/transactions/localisation', function(req, res) {
                 }
 
                 // Attendre 2 secondes
-
                 function resolveAfter2Seconds(x) {
                     return new Promise(resolve => {
                         setTimeout(() => {
@@ -403,7 +432,9 @@ app.get('/api/v2/transactions/localisation', function(req, res) {
                     console.log(ret)
                     data=ret
                     res.json({
-                        "data":data
+                        "data":data,
+                        "status": "true"
+
                     });
                 }
                 f1();
@@ -415,8 +446,8 @@ app.get('/api/v2/transactions/localisation', function(req, res) {
     }else{
         console.log("les donnes sont pas definie ")
         res.json({
-            "data":"",
-            "Message":"Il manque un arguement lat ou long"
+            "Message":"Il manque un arguement lat ou long",
+            "status": "false"
         });
     }
 });
@@ -453,7 +484,8 @@ app.put('/api/transactions/', function(req, res) {
         pool.query('INSERT INTO `transactions` ( `id_propositions`, `id_beneficiaire`, `duree`, `datePrevue`, `dateFin`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',"'+datePrevue+'","'+dateFin+'",\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
                 });
             }else{
                 const transaction = rows;
@@ -464,12 +496,14 @@ app.put('/api/transactions/', function(req, res) {
                 pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
                     if(err){
                         return res.status(500).json({
-                            erreur:err
+                            erreur:err,
+                            "status": "false"
                         });
                     }else{
                         console.log(rows)
                         res.json({
-                            "data":rows
+                            "data":rows,
+                            "status": "true"
                         });
                     }
                 })
@@ -491,12 +525,14 @@ app.put('/api/transactions/', function(req, res) {
                 pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
                     if(err){
                         return res.status(500).json({
-                            erreur:err
+                            erreur:err,
+                            "status": "false"
                         });
                     }else{
                         console.log(rows)
                         res.json({
-                            "data":rows
+                            "data":rows,
+                            "status": "true"
                         });
                     }
                 })
@@ -506,7 +542,8 @@ app.put('/api/transactions/', function(req, res) {
         pool.query('INSERT INTO `transactions` (`id_propositions`, `id_beneficiaire`, `duree`, `datePrevue`, `etat`, `tarif`, `ecu`) VALUES ('+id_propositions+','+id_beneficiaire+','+duree+',\''+datePrevue+'\',\''+etat+'\','+tarif+','+ecu+')' , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
                 });
             }else{
                 const transaction = rows;
@@ -517,12 +554,15 @@ app.put('/api/transactions/', function(req, res) {
                 pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
                     if(err){
                         return res.status(500).json({
-                            erreur:err
+                            erreur:err,
+                            "status": "false"
                         });
                     }else{
                         console.log(rows)
                         res.json({
-                            "data":rows
+                            "data":rows,
+                            "status": "true"
+
                         });
                     }
                 })
@@ -543,12 +583,16 @@ app.put('/api/transactions/', function(req, res) {
                 pool.query('SELECT * FROM transactions WHERE id_transactions='+id_new_transaction , (err, rows, fields) => {
                     if(err){
                         return res.status(500).json({
-                            erreur:err
+                            erreur:err,
+                            "status": "false"
+
                         });
                     }else{
                         console.log(rows)
                         res.json({
-                            "data":rows
+                            "data":rows,
+                            "status": "true"
+
                         });
                     }
                 })
@@ -680,12 +724,15 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `id_code_membre`=' + id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -694,12 +741,14 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `id_competences`=' + id_competences, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -708,12 +757,15 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `desc`LIKE '+"'%"+desc +"%'", (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -722,12 +774,14 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `id_competences`='+id_competences+' and `id_code_membre`='+id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -736,12 +790,14 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `desc`LIKE '+"'%"+desc +"%'"+'and id_competences='+id_competences, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -749,12 +805,16 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `desc`LIKE '+"'%"+desc +"%'"+'and id_code_membre='+id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -762,12 +822,16 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE `desc`LIKE '+"'%"+desc +"%'"+'and id_code_membre='+id_code_membre+' and id_competences='+id_competences, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -775,11 +839,13 @@ app.get('/api/mescompetences', function(req, res) {
         pool.query('SELECT * FROM `mes_competences` WHERE 1', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
                 });
             }else{
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
                 });
             }
         })
@@ -802,12 +868,15 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_code_membre`=' + id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -816,12 +885,16 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_transactions`=' + id_transactions, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -830,12 +903,14 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_commentaires`='+id_commentaires , (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -844,12 +919,15 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_transactions`='+id_transactions+' and `id_code_membre`='+id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -858,12 +936,16 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_commentaires`='+id_commentaires +' and id_transactions='+id_transactions, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
+
                 });
             }
         })
@@ -871,12 +953,14 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_commentaires`='+id_commentaires +' and id_code_membre='+id_code_membre, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -884,12 +968,14 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE `id_commentaires`='+id_commentaires +' and id_code_membre='+id_code_membre+' and id_transactions='+id_transactions, (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 console.log(rows)
                 res.json({
-                    "data": rows
+                    "data": rows,
+                    "status": "true"
                 });
             }
         })
@@ -897,11 +983,13 @@ app.get('/api/commentaires', function(req, res) {
         pool.query('SELECT * FROM `commentaires` WHERE 1', (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    "status": "false"
                 });
             }else{
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
                 });
             }
         })
@@ -925,7 +1013,9 @@ app.put('/api/commentaires/', function(req, res) {
         pool.query('INSERT INTO `commentaires` (`id_transactions`, `texte`, `id_code_membre`) VALUES (' + id_transactions + ',\'' + texte + '\',' + id_code_membre + ')', (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 const transaction = rows;
@@ -936,12 +1026,16 @@ app.put('/api/commentaires/', function(req, res) {
                 pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_new_transaction, (err, rows, fields) => {
                     if (err) {
                         return res.status(500).json({
-                            erreur: err
+                            erreur: err,
+                            "status": "false"
+
                         });
                     } else {
                         console.log(rows)
                         res.json({
-                            "data": rows
+                            "data": rows,
+                            "status": "true"
+
                         });
                     }
                 })
@@ -988,7 +1082,9 @@ app.post('/api/commentaires/', function(req, res) {
                     pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
                         if (err) {
                             return res.status(500).json({
-                                erreur: err
+                                erreur: err,
+                                "status": "false"
+
                             });
                         } else {
                             console.log(rows)
@@ -1005,13 +1101,18 @@ app.post('/api/commentaires/', function(req, res) {
             pool.query('UPDATE `commentaires` SET  `texte`=\''+texte+'\' WHERE `id_commentaires`='+id_commentaires, (err, rows, fields) => {
                 if (err) {
                     return res.status(500).json({
-                        erreur: err
+                        erreur: err,
+                        "status": "false"
+
+
                     });
                 } else {
                     pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
                         if (err) {
                             return res.status(500).json({
-                                erreur: err
+                                erreur: err,
+                                "status": "false"
+
                             });
                         } else {
                             console.log(rows)
@@ -1028,7 +1129,8 @@ app.post('/api/commentaires/', function(req, res) {
             pool.query('UPDATE `commentaires` SET  `id_code_membre`='+id_code_membre+' WHERE `id_commentaires`='+id_commentaires, (err, rows, fields) => {
                 if (err) {
                     return res.status(500).json({
-                        erreur: err
+                        erreur: err,
+                        "status": "false"
                     });
                 } else {
                     pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
@@ -1095,7 +1197,9 @@ app.post('/api/commentaires/', function(req, res) {
             pool.query('UPDATE `commentaires` SET  `id_transactions`='+id_transactions+' , `id_code_membre`='+id_code_membre+' WHERE `id_commentaires`='+id_commentaires, (err, rows, fields) => {
                 if (err) {
                     return res.status(500).json({
-                        erreur: err
+                        erreur: err,
+                        "status": "false"
+
                     });
                 } else {
                     pool.query('SELECT * FROM commentaires WHERE id_commentaires=' + id_commentaires, (err, rows, fields) => {
@@ -1180,13 +1284,13 @@ app.post('/api/upload-avatar', async (req, res) => {
                     let id_new_transaction = json.insertId;
                 }
                 res.send({
-                status: true,
+                "status": "true",
                 message: 'Import OK '
             });
         }
     }catch (err) {
         res.send({
-            status: false,
+            "status": "false",
             message: 'File is not uploaded'
         }
         )
@@ -1205,7 +1309,8 @@ app.get('/api/download-avatar', async (req, res) => {
             pool.query('SELECT `id_file_sys_img` FROM `images` WHERE `id_transactions`='+id_transactions, (err, rows, fields) => {
                 if (err) {
                     return res.status(500).json({
-                        erreur: err
+                        erreur: err,
+                        "status": "false"
                     });
                 } else {
                     var ret = [];
@@ -1264,7 +1369,8 @@ app.put('/api/propositions/', function(req, res) {
         pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_debut`, `date_fin`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_debut + '\',\'' + date_fin + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 const transaction = rows;
@@ -1275,13 +1381,14 @@ app.put('/api/propositions/', function(req, res) {
                 pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
                     if (err) {
                         return res.status(500).json({
-                            erreur: err
+                            erreur: err,
+                            "status": "false"
                         });
                     } else {
                         console.log(rows)
                         res.json({
                             "data": rows,
-                            status: true,
+                            "status": "true",
                         });
                     }
                 })
@@ -1291,7 +1398,8 @@ app.put('/api/propositions/', function(req, res) {
         pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_fin`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_fin + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 const transaction = rows;
@@ -1302,13 +1410,15 @@ app.put('/api/propositions/', function(req, res) {
                 pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
                     if (err) {
                         return res.status(500).json({
-                            erreur: err
+                            erreur: err,
+                            "status": "false"
+
                         });
                     } else {
                         console.log(rows)
                         res.json({
                             "data": rows,
-                            status: true,
+                            "status": "true",
 
                         });
                     }
@@ -1319,7 +1429,9 @@ app.put('/api/propositions/', function(req, res) {
         pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `date_debut`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ',\'' + date_debut + '\',' + lat + ',' + long + ')', (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
+
                 });
             } else {
                 const transaction = rows;
@@ -1330,13 +1442,15 @@ app.put('/api/propositions/', function(req, res) {
                 pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
                     if (err) {
                         return res.status(500).json({
-                            erreur: err
+                            erreur: err,
+                            "status": "false"
+
                         });
                     } else {
                         console.log(rows)
                         res.json({
                             "data": rows,
-                            status: true,
+                            "status": "true",
 
                         });
                     }
@@ -1347,7 +1461,8 @@ app.put('/api/propositions/', function(req, res) {
         pool.query('INSERT INTO `propositions` (`id_code_membre`, `titre`, `desc`, `id_competences`, `lat`, `long`) VALUES (' + id_code_membre + ',' + titre + ',\'' + desc + '\',' + id_competences + ','+ lat + ',' + long + ')', (err, rows, fields) => {
             if (err) {
                 return res.status(500).json({
-                    erreur: err
+                    erreur: err,
+                    "status": "false"
                 });
             } else {
                 const transaction = rows;
@@ -1358,13 +1473,15 @@ app.put('/api/propositions/', function(req, res) {
                 pool.query('SELECT * FROM propositions WHERE id_propositions=' + id_new_transaction, (err, rows, fields) => {
                     if (err) {
                         return res.status(500).json({
-                            erreur: err
+                            erreur: err,
+                            "status": "false"
+
                         });
                     } else {
                         console.log(rows)
                         res.json({
                             "data": rows,
-                            status: true,
+                            "status": "true",
 
                         });
                     }
@@ -1373,7 +1490,7 @@ app.put('/api/propositions/', function(req, res) {
         })
     }else{
         res.json({
-            "status": false,
+            "status": "false",
             "message": "erreur API",
         });
     }
@@ -1388,12 +1505,14 @@ app.get('/api/propositions', function(req, res) {
         pool.query('SELECT * FROM `propositions` WHERE `id_propositions`='+id_propositions , (err, rows, fields) => {
             if(err){
                 return res.status(500).json({
-                    erreur:err
+                    erreur:err,
+                    status: false,
                 });
             }else{
                 console.log(rows)
                 res.json({
-                    "data":rows
+                    "data":rows,
+                    "status": "true"
                 });
             }
         })
