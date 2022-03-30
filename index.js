@@ -41,6 +41,16 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+// GET AUTHENTIFICATION
+app.get('/api/version', function(req, res) {
+
+    res.json({
+        "version":"v2"
+    });
+
+});
+
 // GET AUTHENTIFICATION
 app.get('/api/auth/sign', function(req, res) {
 
