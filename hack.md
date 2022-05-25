@@ -1,21 +1,37 @@
-[English](./README.md) | [繁中版](./README-tw.md) | [简中版](./README-zh.md) | [Português (Brasil)](./README-pt_BR.md) | [한국어](./README-ko.md) | [Nederlands](./README-nl.md) | [Indonesia](./README-id.md) | [ไทย](./README-th.md) | [Русский](./README-ru.md) | [Українська](./README-uk.md) | [Español](./README-es.md) | [Italiano](./README-it.md) | [日本語](./README-ja.md) | [Deutsch](./README-de.md) | [Türkçe](./README-tr.md) | [Tiếng Việt](./README-vi.md) | [Монгол](./README-mn.md) | [हिंदी](./README-hi.md) | [العربية](./README-ar.md) | [Polski](./README-pl.md) | [Македонски](./README-mk.md) | [ລາວ](./README-lo.md) | [فارسی](./README-fa.md) | [മലയാളം](./README-ml.md)
-
 # API Security Checklist
 Checklist des points de sécurité les plus importants lors de la conception, du test et de la mise en production de votre API.
-
 
 ---
 
 ## Authentification
-- [ ] Ne pas utiliser une authentification basique http (`Basic Auth`) mais plutôt un standard d'authentification (tel que JWT, OAuth).
-- [ ] Ne pas réinventer la roue lors de `l'authentification`, `la génération de token`, `le stockage de mots de passe` mais utiliser les standards.
+- [x] Ne pas utiliser une authentification basique http (`Basic Auth`) mais plutôt un standard d'authentification (tel que JWT, OAuth).
+- [x] Ne pas réinventer la roue lors de `l'authentification`, `la génération de token`, `le stockage de mots de passe` mais utiliser les standards.
 - [ ] Lors de l'authentification, mettre en place les fonctionnalités de bannissement (`jail`) avec des seuils de tentatives maximales (`Max Retry`).
-- [ ] Chiffrer toutes les données sensibles.
+- [x] Chiffrer toutes les données sensibles.
+
+
+hash de mdp 
+
+document ecris avec les roles, 
+les routes les decirer et associer les roles sur papier 
+
+critere qui vont valider oui ou non 
+ verifier la nature 
+
+
+andoroid securisation 
+montrer qu onn est capable de chercher les bonnes pratiques on arbitre 
+et on mets en place 
+pragmatique et sincere 
+
+code de retour 
+
+refresh token 
 
 ### JWT (JSON Web Token)
-- [ ] Utiliser des clés aléatoires complexes (`JWT Secret`) pour rendre les attaques par force brute difficiles.
+- [x] Utiliser des clés aléatoires complexes (`JWT Secret`) pour rendre les attaques par force brute difficiles. => au demarage du serveur creation clé aléatoire fonctio generate random string 
 - [ ] Ne pas extraire l'algorithme du payload. Imposer l'algorithme côté serveur (`HS256` ou `RS256`).
-- [ ] Rendre la durée de vie des tokens (`TTL`, `RTTL`) aussi courte que possible.
+- [x] Rendre la durée de vie des tokens (`TTL`, `RTTL`) aussi courte que possible.
 - [ ] Ne pas stocker des informations sensibles du payload JWT, son décryptage est très [simple](https://jwt.io/#debugger-io).
 
 ### OAuth
@@ -73,3 +89,6 @@ Checklist des points de sécurité les plus importants lors de la conception, du
 
 # Contribution
 N'hésitez pas à contribuer en forkant ce dépôt, faire quelques changements, et soumettre une pull request. Pour toute question, envoyez un courriel à `team@shieldfy.io`.
+
+
+# Ne pas utiliser de mdp dans le paylot jwt pour generer le token car il n'est pas encrypté
